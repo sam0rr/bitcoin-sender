@@ -1,0 +1,33 @@
+doctype html
+html
+  head
+    title= message || 'Error'
+    meta(charset='utf-8')
+    meta(name='viewport', content='width=device-width, initial-scale=1')
+    style.
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 40px;
+        background: #f8f9fa;
+        color: #333;
+      }
+      h1 {
+        margin-top: 0;
+        font-size: 2rem;
+      }
+      pre {
+        background: #fff;
+        padding: 16px;
+        border-radius: 4px;
+        overflow-x: auto;
+        border: 1px solid #dee2e6;
+      }
+  body
+    h1= message || 'Unexpected error'
+    p Status: #{status || 500}
+    if error && error.stack
+      h2 Stack trace
+      pre= error.stack
+    else
+      p Something went wrong. Please try again later.

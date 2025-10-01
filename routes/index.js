@@ -1,7 +1,45 @@
+require('dotenv').config();
+
 let express = require('express');
 let router = express.Router();
 
-const publicAddress = "mj4CNS8gScsNDhZDqFCGJfghEMHRpvfg9t";
+const bitcore = require('bitcore-lib');
+const Mnemonic = require('bitcore-mnemonic');
+const axios = require('axios');
+
+const apiNetwork = process.env.API_NETWORK;
+const publicAddress = process.env.PUBLIC_ADDRESS;
+const blockCypherToken = process.env.BLOCKCYPHER_TOKEN;
+const privateKey = process.env.PRIVATE_KEY;
+
+
+router.get('/wallet', function(req, res) {
+    const mnemonic = new Mnemonic();
+    console.log('==> SEED PHASES: ${mnemonic.toString()}');
+
+    const seed = mnemonic.toSeed();
+    const hdRoot = bitcore.HDPrivateKey.fromSeed(seed, bitcore.Networks.testnet);
+
+    // BIP32 (derivation path) + BIP84 (coin type)
+    // m / purpose' / coin_type' / account' / change / address_index
+    const path = "m/84'/1'/0'/0/0";
+    const child = hdRoot.derive(path);
+
+    // private key + WIF
+    const privateKey = child.privateKey;
+    const wif = privateKey.toWIF();
+    console.log('==> PRIVATE KEY (WIF): ${wif}');
+
+    // Public key
+    const publicKey = privateKey.toPublicKey();
+    const sigwitAddress = bitcore.Address.fromPublicKey(
+        publicKey, bitcore.Networks.testnet,
+        'witnesspubkeyhash' // P2KPKH
+    );
+    console.log('==> PUBLIC ADRESS: ${sigwitAddress}');
+
+    res.send("SUCCESS! Check the console for details.")
+});
 
 router.get('/', function(req, res) {
     res.render('index', {
