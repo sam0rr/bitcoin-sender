@@ -15,7 +15,7 @@ const privateKey = process.env.PRIVATE_KEY;
 
 router.get('/wallet', function(req, res) {
     const mnemonic = new Mnemonic();
-    console.log('==> SEED PHASES: ${mnemonic.toString()}');
+    console.log(`==> SEED PHRASE: ${mnemonic.toString()}`);
 
     const seed = mnemonic.toSeed();
     const hdRoot = bitcore.HDPrivateKey.fromSeed(seed, bitcore.Networks.testnet);
@@ -28,7 +28,7 @@ router.get('/wallet', function(req, res) {
     // private key + WIF
     const privateKey = child.privateKey;
     const wif = privateKey.toWIF();
-    console.log('==> PRIVATE KEY (WIF): ${wif}');
+    console.log(`==> PRIVATE KEY (WIF): ${wif}`);
 
     // Public key
     const publicKey = privateKey.toPublicKey();
@@ -36,7 +36,7 @@ router.get('/wallet', function(req, res) {
         publicKey, bitcore.Networks.testnet,
         'witnesspubkeyhash' // P2KPKH
     );
-    console.log('==> PUBLIC ADRESS: ${sigwitAddress}');
+    console.log(`==> PUBLIC ADDRESS: ${sigwitAddress.toString()}`);
 
     res.send("SUCCESS! Check the console for details.")
 });
