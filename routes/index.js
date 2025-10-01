@@ -41,9 +41,9 @@ router.get('/wallet', function(req, res) {
     res.send("SUCCESS! Check the console for details.")
 });
 
-router.get('/', function(req, res) {
+router.get('/', async function(req, res) {
     res.render('index', {
-        balance: getBalance(publicAddress),
+        balance: await getBalance(publicAddress),
         error: req.flash('error'),
         success: req.flash('success'),
         address: publicAddress
@@ -80,9 +80,14 @@ router.post('/', async function (req, res) {
     res.redirect("/");
 });
 
-function getBalance(address) {
-    // TODO: Retrieve the real BTC balance for a given address
-    return parseFloat("0").toFixed(8);
+async function getBalance(address) {
+    const url = `${apiNetwork}/addrs/${address}/balance`;
+    const result = await axios.get(url);
+    const data = result.data;
+
+    // Values are in satoshis, convert to BTC (SAT)
+    const balance = parseFloat(data.final_balance / 100000000);
+    return balance.toFixed(8);
 }
 
 function sendBitcoin(toAddress, btcAmount) {
