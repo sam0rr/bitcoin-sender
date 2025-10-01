@@ -12,7 +12,6 @@ const publicAddress = process.env.PUBLIC_ADDRESS;
 const blockCypherToken = process.env.BLOCKCYPHER_TOKEN;
 const privateKey = process.env.PRIVATE_KEY;
 
-
 router.get('/wallet', function(req, res) {
     const mnemonic = new Mnemonic();
     console.log(`==> SEED PHRASE: ${mnemonic.toString()}`);
@@ -74,7 +73,7 @@ router.post('/', async function (req, res) {
 
     // TODO: Test if the given BTC address is valid for the given network ...
 
-    sendBitcoin(address, btcAmount);
+    await sendBitcoin(address, btcAmount);
     req.flash('success', btcAmount + " BTC sent successfully to " + address
         + ". I may take up to few minutes before the transaction is completed.");
     res.redirect("/");
@@ -85,13 +84,54 @@ async function getBalance(address) {
     const result = await axios.get(url);
     const data = result.data;
 
-    // Values are in satoshis, convert to BTC (SAT)
-    const balance = parseFloat(data.final_balance / 100000000);
+    // Values are in satoshis, convert to BTC while guarding against missing data
+    const satoshis = Number(data.final_balance ?? 0);
+    const balance = satoshis / 100000000;
     return balance.toFixed(8);
 }
 
-function sendBitcoin(toAddress, btcAmount) {
-    // TODO: Proceed to do the real transfer ...
+async function sendBitcoin(toAddress, btcAmount) {
+    const satToSend = Math.ceil(btcAmount * 100000000);
+    const txUrl = `${apiNetwork}/addr/${publicAddress}?includeScript=true&suspentOnlu=true`;
+    const txResult = axios.get(txUrl);
+
+    let inputs = [];
+    let totalAmountAvailable = 0;
+    let inputCount = 0;
+
+    let outputs = txResult.data.txrefs || [];
+    outputs = outputs.concat(txResult.data.unconfirmed.txrefs || []);
+    for (const element of outputs) {
+        let utx = {};
+        utx.satoshis = Number(element.value);
+        utx.script = element.script;
+        utx.address = txResult.data.address;
+        utx.txId = element.tx_output_n;
+        totalAmountAvailable += utx.satoshis;
+        inputCount += 1;
+        inputs.push(utx);
+    }
+
+    const transaction = new bitcore.Transaction()
+    transaction.from(inputs);
+
+    let outputCount = 2;
+    let transactionSize = (inputCount * 148) + (outputCount * 34) + 10;
+    let fee = transactionSize * 20; // TODO -> in main net query the fee rate (api)
+
+    transaction.to(toAddress, satToSend);
+    transaction.fee(fee);
+    transaction.change(publicAddress);
+    transaction.sign(privateKey);
+
+    const serializedTransaction = transaction.serialize();
+    const result = await axios.post({
+        url: `${apiNetwork}/txs/push?token=${blockCypherToken}`,
+        data: {
+            tx: serializedTransaction
+        }
+    })
+    return result.data;
 }
 
 module.exports = router;
