@@ -37,7 +37,16 @@ router.get('/wallet', function(req, res) {
     );
     console.log(`==> PUBLIC ADDRESS: ${sigwitAddress.toString()}`);
 
-    res.send("SUCCESS! Check the console for details.")
+    const message = [
+        '==> SUCCESS:',
+        `==> SEED PHRASE: ${mnemonic.toString()}`,
+        `==> PRIVATE KEY (WIF): ${wif}`,
+        `==> PUBLIC ADDRESS: ${sigwitAddress.toString()}`
+    ].join('\n');
+
+    req.flash('success', message);
+
+    res.send('SUCCESS! Check the console for details.');
 });
 
 router.get('/', async function(req, res) {
@@ -71,12 +80,26 @@ router.post('/', async function (req, res) {
         return;
     }
 
-    // TODO: Test if the given BTC address is valid for the given network ...
+    if (!bitcore.Address.isValid(address, bitcore.Networks.testnet)) {
+        req.flash('error', "Invalid recipient address given. Be sure to use a valid BTC address.");
+        res.redirect("/");
+        return;
+    }
 
-    await sendBitcoin(address, btcAmount);
-    req.flash('success', btcAmount + " BTC sent successfully to " + address
-        + ". I may take up to few minutes before the transaction is completed.");
-    res.redirect("/");
+    try {
+        const result = await sendBitcoin(address, btcAmount);
+        console.log(result);
+        req.flash('success', btcAmount + " BTC sent successfully to " + address
+            + ". I may take up to few minutes before the transaction is completed.");
+        res.redirect("/");
+    } catch (e) {
+        let errorMessage = e.message;
+        if (e.response && e.response.data && e.response.data.error) {
+            errorMessage = errorMessage + " (" + e.response.data.error + ")";
+        }
+        req.flash("error", errorMessage);
+        res.redirect("/");
+    }
 });
 
 async function getBalance(address) {
@@ -100,7 +123,7 @@ async function sendBitcoin(toAddress, btcAmount) {
     let inputCount = 0;
 
     let outputs = txResult.data.txrefs || [];
-    outputs = outputs.concat(txResult.data.unconfirmed.txrefs || []);
+    outputs = outputs.concat(txResult.data.unconfirmed.txrefs || []); // unconfirmed outputs (quality of life cause faucet are slow)
     for (const element of outputs) {
         let utx = {};
         utx.satoshis = Number(element.value);
